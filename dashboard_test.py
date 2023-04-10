@@ -75,6 +75,14 @@ nhl_teams_colors = {
 # Read in JSON file
 df = pd.read_json("2022-23.json")
 
+# Helper function to parse the team name and put it into the right format for NHL logo.
+def parse_team_name(team_name):
+    # Split the team name into a list of words
+    split_name = team_name.split(" ")
+
+    # Join and return the list of words into a string with a "\ " between each word
+    return '/NHL-Logos/' + '_'.join(split_name) + '.svg'
+
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
@@ -95,7 +103,12 @@ app.layout = html.Div(children=[
             # Create the dropdown menu
             dcc.Dropdown(
                 id='year-dropdown',  # Give the dropdown menu an ID so we can reference it in the callback function
-                options=[{'label': team, 'value': team} for team in df.columns.tolist()],  # Set the options for the dropdown menu to the years in the dataframe
+                # options=[{'label': team, 'value': team} for team in df.columns.tolist()
+                #          ],  # Set the options for the dropdown menu to the years in the dataframe
+                options=[{"label": html.Span([html.Img(src=parse_team_name(team), height=20), 
+                                        html.Span(f"{team}", style={'font-size': 15, 'padding-left': 10}),
+                        ], style={'align-items': 'center', 'justify-content': 'center'}),
+                        "value": f"{team}"} for team in df.columns.tolist()],
                 value=df.columns.to_list()[0],  # Set the default value of the dropdown menu to the first year in the dataframe
                 multi=True
             )
@@ -109,23 +122,30 @@ app.layout = html.Div(children=[
     dash.dependencies.Output('graph', 'figure'),  # Output the updated graph to the 'graph' component
     [dash.dependencies.Input('year-dropdown', 'value')]  # Get the value of the dropdown menu
 )
-def update_figure(selected_year):
-    # Filter the dataframe to only include data for the selected year
-    filtered_df = df[selected_year]
+def update_figure(selected_team):
+    # Filter the data frame to only include data for the selected year
+    filtered_df = df[selected_team]
     
     # Create a subplot figure with two columns
-    fig = make_subplots(rows=1, cols=1, subplot_titles="Season Points", x_title="Games Played", y_title="Points")
+    fig = make_subplots(rows=1, cols=1, subplot_titles=["Season Points"], x_title="Games Played", y_title="Points")
 
     # See if we have one team selected, or multiple
-    if type(selected_year) == str:  # This means there is only one team
-        selected_year = [selected_year]
+    if type(selected_team) == str:  # This means there is only one team
+        selected_team = [selected_team]
     
     # Add a trace for sales to the first column of the subplot figure
-    for team in selected_year:
+    if len(selected_team) == 1:
         fig.add_trace(
-            go.Scatter(x=filtered_df[team]['Games'], y=filtered_df[team]['Points'], mode='lines', name=team, line_color=nhl_teams_colors[team]),
+            go.Scatter(x=filtered_df['Games'], y=filtered_df['Points'], mode='lines', name=selected_team[0], line_color=nhl_teams_colors[selected_team[0]]),
             row=1, col=1,
         )
+    
+    elif len(selected_team) > 1:
+        for team in selected_team:
+            fig.add_trace(
+                go.Scatter(x=filtered_df[team]['Games'], y=filtered_df[team]['Points'], mode='lines', name=team, line_color=nhl_teams_colors[team]),
+                row=1, col=1,
+            )
 
     
     # Update the layout of the subplot figure
